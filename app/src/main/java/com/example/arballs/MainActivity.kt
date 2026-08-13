@@ -39,9 +39,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var arView: ArView
     private lateinit var statusView: TextView
     private lateinit var messageView: TextView
+    private lateinit var hintView: TextView
     private lateinit var objButton: Button
     private lateinit var lockButton: Button
     private lateinit var mapButton: Button
+    private lateinit var massButton: Button
     private var analysisExecutor: ExecutorService? = null
     private var cameraStarted = false
 
@@ -103,53 +105,54 @@ class MainActivity : AppCompatActivity() {
         bottom.setBackgroundColor(Color.argb(140, 0, 0, 0))
         bottom.setPadding(10, 10, 10, 22)
 
-        val hint = TextView(this)
-        hint.setTextColor(Color.argb(220, 230, 230, 230))
-        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-        hint.setPadding(10, 0, 10, 8)
-        hint.text = "Point at an empty part of the table and press Scan. " +
-                "Red squares are what the app thinks are real objects - the ball bounces off those."
-        bottom.addView(hint)
+        hintView = TextView(this)
+        hintView.setTextColor(Color.argb(220, 230, 230, 230))
+        hintView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+        hintView.setPadding(10, 0, 10, 8)
+        hintView.text = "Tap the table to drop a ball. Press Mark to register the surface " +
+                "against two markers you place on it."
+        bottom.addView(hintView)
+        arView.onHint = { text -> hintView.post { hintView.text = text } }
 
         val row1 = LinearLayout(this)
         row1.orientation = LinearLayout.HORIZONTAL
         row1.addView(makeButton("Ball") { arView.addBall() })
-        row1.addView(makeButton("Center") { arView.recenter() })
         row1.addView(makeButton("Clear") { arView.clearBalls() })
+        row1.addView(makeButton("Center") { arView.recenter() })
         row1.addView(makeButton("Scan") { arView.rescanTable() })
         lockButton = makeButton("Lock on") {
             arView.flowEnabled = !arView.flowEnabled
             lockButton.text = if (arView.flowEnabled) "Lock on" else "Lock off"
         }
         row1.addView(lockButton)
-        bottom.addView(
-            row1,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        )
+        bottom.addView(row1, rowParams())
 
         val row2 = LinearLayout(this)
         row2.orientation = LinearLayout.HORIZONTAL
-        row2.addView(makeButton("Table -") { arView.nudgeFloor(-0.05f) })
-        row2.addView(makeButton("Table +") { arView.nudgeFloor(0.05f) })
+        row2.addView(makeButton("Mark") { arView.startMarking() })
+        row2.addView(makeButton("Scale -") { arView.scaleWorld(0.91f) })
+        row2.addView(makeButton("Scale +") { arView.scaleWorld(1.1f) })
+        row2.addView(makeButton("Table -") { arView.nudgeFloor(-0.03f) })
+        row2.addView(makeButton("Table +") { arView.nudgeFloor(0.03f) })
+        bottom.addView(row2, rowParams())
+
+        val row3 = LinearLayout(this)
+        row3.orientation = LinearLayout.HORIZONTAL
+        massButton = makeButton(arView.materialLabel()) {
+            massButton.text = arView.cycleMaterial()
+        }
+        row3.addView(massButton)
         objButton = makeButton(arView.sensitivityLabel()) {
             objButton.text = arView.cycleSensitivity()
         }
-        row2.addView(objButton)
+        row3.addView(objButton)
         mapButton = makeButton("Map on") {
             arView.showMap = !arView.showMap
             mapButton.text = if (arView.showMap) "Map on" else "Map off"
         }
-        row2.addView(mapButton)
-        bottom.addView(
-            row2,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        )
+        row3.addView(mapButton)
+        row3.addView(makeButton("Reset") { arView.resetAll() })
+        bottom.addView(row3, rowParams())
 
         val bottomParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -184,6 +187,12 @@ class MainActivity : AppCompatActivity() {
         analysisExecutor = null
         super.onDestroy()
     }
+
+    private fun rowParams(): LinearLayout.LayoutParams =
+        LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
 
     private fun makeButton(label: String, action: () -> Unit): Button {
         val b = Button(this)
